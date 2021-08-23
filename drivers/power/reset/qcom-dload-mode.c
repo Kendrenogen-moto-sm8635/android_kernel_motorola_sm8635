@@ -18,6 +18,9 @@
 #include <linux/qcom_scm.h>
 #include <soc/qcom/minidump.h>
 
+static char *sys_restart_mode = "NULL";
+module_param(sys_restart_mode, charp, 0644);
+
 enum qcom_download_dest {
 	QCOM_DOWNLOAD_DEST_UNKNOWN = -1,
 	QCOM_DOWNLOAD_DEST_QPST = 0,
@@ -276,6 +279,12 @@ static int qcom_dload_restart(struct notifier_block *this, unsigned long event,
 	struct qcom_dload *poweroff = container_of(this, struct qcom_dload,
 						   restart_nb);
 
+	pr_info("%s: sys_restart_mode [%s]\n", __func__, sys_restart_mode);
+	if (!strcmp(sys_restart_mode, "panic")) {
+		/* Trigger a real panic on 8450 */
+		BUG();
+	}
+
 	if (!poweroff->in_panic && !poweroff->in_reboot) {
 		qcom_scm_disable_sdi();
 		set_download_mode(QCOM_DOWNLOAD_NODUMP);
@@ -290,6 +299,12 @@ static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 	char *cmd = ptr;
 	struct qcom_dload *poweroff = container_of(this, struct qcom_dload,
 						   reboot_nb);
+
+	pr_info("%s: sys_restart_mode [%s]\n", __func__, sys_restart_mode);
+	if (!strcmp(sys_restart_mode, "panic")) {
+		/* Trigger a real panic on 8450 */
+		BUG();
+	}
 
 	poweroff->in_reboot = true;
 	set_download_mode(QCOM_DOWNLOAD_NODUMP);
