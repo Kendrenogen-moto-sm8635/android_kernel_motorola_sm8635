@@ -281,8 +281,14 @@ static int qcom_dload_restart(struct notifier_block *this, unsigned long event,
 
 	pr_info("%s: sys_restart_mode [%s]\n", __func__, sys_restart_mode);
 	if (!strcmp(sys_restart_mode, "panic")) {
-		/* Trigger a real panic on 8450 */
+		/* Trigger a real panic on debug setting */
 		BUG();
+	}
+	if (!strcmp(sys_restart_mode, "recovery_panic")) {
+		if (!strcmp(cmd, "recovery")) {
+			/* Trigger a real panic on debug setting */
+			BUG();
+		}
 	}
 
 	if (!poweroff->in_panic && !poweroff->in_reboot) {
