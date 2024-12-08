@@ -81,7 +81,6 @@ if (print) { \
 #define SE_DMA_RX_ATTR			(0xD38)
 #define SE_DMA_RX_LEN			(0xD3C)
 #define SE_DMA_RX_IRQ_EN                (0xD48)
-#define SE_DMA_RX_LEN_IN                (0xD54)
 
 #define SE_DMA_TX_IRQ_EN_SET	(0xC4C)
 #define SE_DMA_TX_IRQ_EN_CLR	(0xC50)
@@ -111,7 +110,6 @@ if (print) { \
 
 /* GENI_OUTPUT_CTRL fields */
 #define GENI_CFG_REG80		0x240
-#define GENI_IO_MUX_0_EN	BIT(0)
 #define GENI_IO_MUX_1_EN	BIT(2)
 
 /* GENI_CFG_REG80 fields */
