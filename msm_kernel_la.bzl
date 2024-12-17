@@ -33,6 +33,7 @@ load(":image_opts.bzl", "boot_image_opts")
 load(":target_variants.bzl", "la_variants")
 load(":modules.bzl", "COMMON_GKI_MODULES_LIST")
 load(":modules_unprotected.bzl", "get_unprotected_vendor_modules_list")
+load(":moto_product.bzl", "mmi_product_name")
 
 def _define_build_config(
         msm_target,
@@ -97,6 +98,7 @@ def _define_build_config(
             "build.config.msm.common",
             "build.config.msm.gki",
             "build.config.moto",
+            "build.config.moto." + mmi_product_name,
         ],
     )
 
