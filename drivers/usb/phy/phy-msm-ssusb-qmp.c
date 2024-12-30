@@ -1333,14 +1333,16 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
 
+	ret = usb3_get_regulators(phy);
+	if (ret)
+		goto err;
+
+	/* Placed at the end to ensure the probe is complete */
 	ret = usb_add_phy_dev(&phy->phy);
 
 	if (!ret)
 		msm_ssphy_qmp_create_debugfs(phy);
 
-	ret = usb3_get_regulators(phy);
-	if (ret)
-		goto err;
 err:
 	return ret;
 }

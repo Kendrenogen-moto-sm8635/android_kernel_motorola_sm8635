@@ -1,5 +1,5 @@
 CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y
-CONFIG_CMDLINE="console=ttynull kasan.stacktrace=off stack_depot_disable=off no_hash_pointers panic_on_taint=0x20 page_pinner=on"
+CONFIG_CMDLINE="console=ttynull kasan.stacktrace=off stack_depot_disable=off no_hash_pointers panic_on_taint=0x20 page_pinner=on cgroup_disable=pressure"
 # CONFIG_DEBUG_ATOMIC_SLEEP is not set
 # CONFIG_DEBUG_IRQFLAGS is not set
 # CONFIG_DEBUG_KMEMLEAK is not set

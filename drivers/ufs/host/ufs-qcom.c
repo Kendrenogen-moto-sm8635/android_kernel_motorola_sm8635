@@ -1907,8 +1907,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 		if (host->vddp_ref_clk && ufs_qcom_is_link_off(hba))
 			err = ufs_qcom_disable_vreg(hba->dev,
 					host->vddp_ref_clk);
-		if (host->vccq_parent && !hba->auto_bkops_enabled)
-			ufs_qcom_disable_vreg(hba->dev, host->vccq_parent);
+		if (host->parent_vreg && !hba->auto_bkops_enabled)
+			ufs_qcom_disable_vreg(hba->dev, host->parent_vreg);
 		if (!err)
 			err = ufs_qcom_unvote_qos_all(hba);
 	}
@@ -1949,8 +1949,8 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufs_qcom_enable_vreg(hba->dev,
 				      host->vddp_ref_clk);
 
-	if (host->vccq_parent)
-		ufs_qcom_enable_vreg(hba->dev, host->vccq_parent);
+	if (host->parent_vreg)
+		ufs_qcom_enable_vreg(hba->dev, host->parent_vreg);
 
 	err = ufs_qcom_enable_lane_clks(host);
 	if (err)
@@ -4082,6 +4082,8 @@ static void ufs_qcom_read_nvmem_cell(struct ufs_qcom_host *host)
 	else
 		host->limit_phy_submode = *data;
 
+	host->ufs_gen_type = host->limit_phy_submode;
+
 	if (host->limit_phy_submode) {
 		dev_info(host->hba->dev, "(%s) UFS device is 3.x, phy_submode = %d\n",
 				__func__, host->limit_phy_submode);
@@ -4100,6 +4102,39 @@ static void ufs_qcom_read_nvmem_cell(struct ufs_qcom_host *host)
 
 cell_put:
 	nvmem_cell_put(nvmem_cell);
+}
+
+/**
+ * ufs_qcom_setup_vreg_to_enable - Determine and set the appropriate voltage
+ * regulator to enable.
+ * @host: UFS host structure containing the regulator information.
+ *
+ * Return: Pointer to the selected voltage regulator, or NULL if no
+ * appropriate regulator is found.
+ */
+static struct ufs_vreg *ufs_qcom_setup_vreg_to_enable(struct ufs_qcom_host *host)
+{
+	struct ufs_vreg *vccq_parent = NULL;
+	struct ufs_vreg *vccq2_parent = NULL;
+	int err;
+
+	err = ufs_qcom_parse_reg_info(host, "qcom,vccq-parent", &vccq_parent);
+
+	err = ufs_qcom_parse_reg_info(host, "qcom,vccq2-parent", &vccq2_parent);
+
+	/* Detect ufs VCCQ or VCCQ2 parent vreg to vote on */
+	if (vccq_parent && vccq2_parent) {
+		host->parent_vreg = host->ufs_gen_type ?
+					vccq_parent : vccq2_parent;
+	} else {
+		host->parent_vreg = vccq_parent ? vccq_parent : vccq2_parent;
+		if (!host->parent_vreg) {
+			dev_info(host->hba->dev, "vccq or vccq2 parent node is not provided\n");
+			return NULL;
+		}
+	}
+
+	return host->parent_vreg;
 }
 
 static int ufs_qcom_get_host_id(struct ufs_hba *hba)
@@ -4201,7 +4236,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 					 &host->vdd_hba_reg_nb);
 
 	/* update phy revision information before calling phy_init() */
-	ufs_qcom_phy_save_controller_version(host->generic_phy,
+	err = ufs_qcom_phy_save_controller_version(host->generic_phy,
 		host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
 	if (err == -EPROBE_DEFER) {
 		pr_err("%s: phy device probe is not completed yet\n",
@@ -4229,13 +4264,13 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		}
 	}
 
-	err = ufs_qcom_parse_reg_info(host, "qcom,vccq-parent",
-				      &host->vccq_parent);
-	if (host->vccq_parent) {
-		err = ufs_qcom_enable_vreg(dev, host->vccq_parent);
+	ufs_qcom_parse_limits(host);
+	host->parent_vreg = ufs_qcom_setup_vreg_to_enable(host);
+	if (host->parent_vreg) {
+		err = ufs_qcom_enable_vreg(dev, host->parent_vreg);
 		if (err) {
-			dev_err(dev, "%s: failed enable vccq-parent err=%d\n",
-				__func__, err);
+			dev_err(dev, "%s: failed to enable %s err=%d\n",
+					__func__, host->parent_vreg->name, err);
 			goto out_disable_vddp;
 		}
 	}
@@ -4250,10 +4285,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	err = ufs_qcom_init_lane_clks(host);
 	if (err)
-		goto out_disable_vccq_parent;
+		goto out_disable_parent_vreg;
 
 	ufs_qcom_parse_pm_level(hba);
-	ufs_qcom_parse_limits(host);
 	ufs_qcom_parse_g4_workaround_flag(host);
 	ufs_qcom_parse_lpm(host);
 	if (host->disable_lpm)
@@ -4369,9 +4403,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	return 0;
 
-out_disable_vccq_parent:
-	if (host->vccq_parent)
-		ufs_qcom_disable_vreg(dev, host->vccq_parent);
+out_disable_parent_vreg:
+	if (host->parent_vreg)
+		ufs_qcom_disable_vreg(dev, host->parent_vreg);
 out_disable_vddp:
 	if (host->vddp_ref_clk)
 		ufs_qcom_disable_vreg(dev, host->vddp_ref_clk);

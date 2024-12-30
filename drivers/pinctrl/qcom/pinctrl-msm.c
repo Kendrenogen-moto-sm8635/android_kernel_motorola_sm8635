@@ -1973,6 +1973,7 @@ static int msm_pinctrl_hibernation_suspend(void)
 	const struct msm_pingroup *pgroup;
 	struct msm_pinctrl *pctrl = msm_pinctrl_data;
 	const struct msm_pinctrl_soc_data *soc = pctrl->soc;
+	struct gpio_chip *chip = &pctrl->chip;
 	void __iomem *tile_addr = NULL;
 	u32 i, j;
 
@@ -1996,6 +1997,9 @@ static int msm_pinctrl_hibernation_suspend(void)
 
 	/* All normal gpios will have common registers, first save them */
 	for (i = 0; i < soc->ngpios; i++) {
+		if (!test_bit(i, chip->valid_mask))
+			continue;
+
 		pgroup = &soc->groups[i];
 		pctrl->gpio_regs[i].ctl_reg =
 				msm_readl_ctl(pctrl, pgroup);
@@ -2012,6 +2016,9 @@ static int msm_pinctrl_hibernation_suspend(void)
 	}
 
 	for ( ; i < soc->ngroups; i++) {
+		if (!test_bit(i, chip->valid_mask))
+			continue;
+
 		pgroup = &soc->groups[i];
 		if (pgroup->ctl_reg)
 			pctrl->gpio_regs[i].ctl_reg =
@@ -2029,10 +2036,15 @@ static void msm_pinctrl_hibernation_resume(void)
 	const struct msm_pingroup *pgroup;
 	struct msm_pinctrl *pctrl = msm_pinctrl_data;
 	const struct msm_pinctrl_soc_data *soc = pctrl->soc;
+	struct gpio_chip *chip = &pctrl->chip;
 	void __iomem *tile_addr = NULL;
 
-	if (likely(!pctrl->hibernation) || !pctrl->gpio_regs || !pctrl->msm_tile_regs)
+	if (likely(!pctrl->hibernation) || !pctrl->gpio_regs)
 		return;
+
+	if (soc->ntiles && !pctrl->msm_tile_regs)
+		return;
+
 	for (i = 0; i < soc->ntiles; i++) {
 		if (soc->tiles)
 			tile_addr = pctrl->regs[i] + soc->dir_conn_addr[i];
@@ -2046,6 +2058,9 @@ static void msm_pinctrl_hibernation_resume(void)
 
     /* Restore normal gpios */
 	for (i = 0; i < soc->ngpios; i++) {
+		if (!test_bit(i, chip->valid_mask))
+			continue;
+
 		pgroup = &soc->groups[i];
 		msm_writel_ctl(pctrl->gpio_regs[i].ctl_reg, pctrl, pgroup);
 		msm_writel_io(pctrl->gpio_regs[i].io_reg, pctrl, pgroup);
@@ -2058,6 +2073,9 @@ static void msm_pinctrl_hibernation_resume(void)
 	}
 
 	for ( ; i < soc->ngroups; i++) {
+		if (!test_bit(i, chip->valid_mask))
+			continue;
+
 		pgroup = &soc->groups[i];
 		if (pgroup->ctl_reg)
 			msm_writel_ctl(pctrl->gpio_regs[i].ctl_reg,
