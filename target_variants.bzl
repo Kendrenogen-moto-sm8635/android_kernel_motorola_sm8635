@@ -65,8 +65,6 @@ vm_variants = [
 ]
 
 lunch_target_bases = {
-    # keep sorted
-    "volcano": "pineapple",
 }
 
 def get_all_la_variants():
